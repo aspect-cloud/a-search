@@ -1,0 +1,20 @@
+# Environments
+.env
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# IDE-specific
+.idea/
+.vscode/
+
+# Database
+*.db
+*.db-journal
+
+# Logs
+logs/
+*.log
