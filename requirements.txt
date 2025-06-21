@@ -9,4 +9,3 @@ pydantic==2.7.4
 Flask>=2.3.0
 google-api-core
 google-api-python-client
-vercel-python
