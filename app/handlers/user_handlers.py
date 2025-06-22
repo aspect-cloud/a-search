@@ -155,12 +155,16 @@ async def handle_album(message: Message, state: FSMContext, db_session: Session,
     api_key_manager = get_api_key_manager()
     try:
         with api_key_manager.get_key_for_session() as api_key:
+            current_state = await state.get_state()
             user_data = await state.get_data()
             mode = user_data.get("mode")
-            if not mode:
-                await status_message.delete()
-                await message.answer(settings.texts.select_mode_first, reply_markup=main_reply_keyboard())
-                return
+
+            # If the user is not in the CHATTING state or mode is not set, set a default mode.
+            if current_state != UserState.CHATTING or not mode:
+                logger.info(f"User {user_id} sent photo without selecting a mode. Setting mode to 'fast'.")
+                await state.update_data(mode="fast")
+                await state.set_state(UserState.CHATTING)
+                mode = "fast" # Update local mode variable
 
             old_file_names = user_data.get("file_names", [])
             if old_file_names:
@@ -313,6 +317,16 @@ async def handle_user_request(
     user_id = message.from_user.id
     user_content = message.text
 
+    user_data = await state.get_data()
+    mode = user_data.get("mode")
+
+    # If the user is not in the CHATTING state or mode is not set, prompt them to select a mode.
+    if await state.get_state() != UserState.CHATTING or not mode:
+        if status_message:
+            await status_message.delete()
+        await message.answer(settings.texts.select_mode_first, reply_markup=main_reply_keyboard())
+        return
+
     if status_message is None:
         status_message = await message.answer(settings.texts.thinking, parse_mode='HTML')
 
@@ -335,8 +349,6 @@ async def handle_user_request(
             pass
 
     try:
-        user_data = await state.get_data()
-        mode = user_data.get("mode")
         file_names = user_data.get("file_names")
 
         user_db = await get_or_create_user(db_session, user_id)
