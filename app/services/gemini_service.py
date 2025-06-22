@@ -127,7 +127,7 @@ async def generate_response(
             logger.warning(f"No candidates returned from Gemini for user {user.id}")
             return GeminiResponse(text=settings.texts.empty_response, finish_reason="EMPTY")
 
-        if response.prompt_feedback.block_reason:
+        if response.prompt_feedback and response.prompt_feedback.block_reason:
             logger.warning(
                 f"Response for user {user.id} blocked. Reason: {response.prompt_feedback.block_reason.name}"
             )
