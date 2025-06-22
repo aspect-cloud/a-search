@@ -2,6 +2,7 @@ import html
 import logging
 import os
 import tempfile
+import asyncio
 from typing import Optional, List, Tuple
 
 from aiogram import F, Router, Bot
@@ -13,7 +14,7 @@ from sqlalchemy.orm import Session
 from aiohttp import ClientSession
 
 from app.core.config import settings
-from app.db.crud import get_or_create_user, add_message_to_history
+from app.db.crud import get_or_create_user, add_message_to_history, clear_user_history
 from app.db.utils import build_gemini_history
 from app.keyboards.reply import main_reply_keyboard
 from app.schemas.gemini_schemas import GeminiResponse
@@ -54,31 +55,44 @@ async def help_command(message: Message):
 @router.message(Command("reset"))
 @log_user_action
 async def reset_command(message: Message, state: FSMContext, db_session: Session):
+    """Resets the conversation history for the user, handling file deletions and DB operations asynchronously."""
     user_id = message.from_user.id
+    logger.info(f"Initiating reset for user {user_id}")
+
+    # --- File Deletion (Async) ---
     user_data = await state.get_data()
     file_names = user_data.get("file_names", [])
-
     if file_names:
+        logger.info(f"User {user_id} has files to delete: {file_names}")
         api_key_manager = get_api_key_manager()
         try:
             with api_key_manager.get_key_for_session() as api_key:
-                logger.info(f"Resetting chat for user {user_id}, deleting files: {file_names}")
-                for name in file_names:
-                    try:
-                        await delete_file_from_gemini(name, api_key=api_key)
-                    except Exception as e:
-                        logger.error(f"Failed to delete file {name} during reset: {e}")
+                delete_tasks = [delete_file_from_gemini(name, api_key=api_key) for name in file_names]
+                results = await asyncio.gather(*delete_tasks, return_exceptions=True)
+                for name, result in zip(file_names, results):
+                    if isinstance(result, Exception):
+                        logger.error(f"Failed to delete file {name} during reset: {result}")
         except Exception as e:
             logger.error(f"Could not acquire API key for reset file deletion: {e}")
 
+    # --- Database History Clearing (Non-blocking) ---
+    loop = asyncio.get_running_loop()
+    try:
+        await loop.run_in_executor(None, clear_user_history, db_session, user_id)
+        logger.info(f"Successfully cleared database history for user {user_id}")
+    except Exception as e:
+        logger.error(f"Failed to clear database history for user {user_id}: {e}", exc_info=True)
+        await message.answer(settings.texts.error_message)
+        return
+
+    # --- Finalize State and Notify User ---
     await state.clear()
     await state.set_state(UserState.MODE_SELECTION)
-
-    user = get_or_create_user(db_session, user_id)
-    user.history = []
-    db_session.commit()
-
-    await message.answer(settings.texts.reset_message, reply_markup=main_reply_keyboard())
+    await message.answer(
+        settings.texts.history_cleared,
+        reply_markup=main_reply_keyboard(),
+    )
+    logger.info(f"Reset complete for user {user_id}")
 
 
 @router.message(F.text == settings.buttons.help)
