@@ -21,7 +21,7 @@ from app.services.gemini_service import (delete_file_from_gemini, generate_respo
 from app.states.user_states import UserState
 from app.utils.action_logger import log_user_action
 from app.utils.text_utils import clean_html_for_telegram, strip_html_tags, strip_markdown_code_blocks
-from app.utils.media_group_cache import add_message_to_group
+
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -148,21 +148,23 @@ async def select_mode(message: Message, state: FSMContext, db_session: Session, 
             parse_mode='HTML'
         )
 
-async def handle_media_group(messages: list[Message], state: FSMContext, db_session: Session, bot: Bot):
-    """Handles a group of media messages (an album) or a single photo."""
-    if not messages:
-        return
 
-    user_id = messages[0].from_user.id
-    status_message = await messages[0].answer(settings.texts.media_processing, parse_mode='HTML')
-    
+
+
+@router.message(F.photo)
+@log_user_action
+async def handle_album(message: Message, state: FSMContext, db_session: Session, bot: Bot, album: list[Message]):
+    """Handles a group of media messages (an album) or a single photo."""
+    user_id = message.from_user.id
+    status_message = await message.answer(settings.texts.media_processing, parse_mode='HTML')
+
     downloaded_files = []
     try:
         user_data = await state.get_data()
         mode = user_data.get("mode")
         if not mode:
             await status_message.delete()
-            await messages[0].answer(settings.texts.select_mode_first, reply_markup=main_reply_keyboard())
+            await message.answer(settings.texts.select_mode_first, reply_markup=main_reply_keyboard())
             return
 
         # --- 1. Clear old files from state and Gemini ---
@@ -174,11 +176,11 @@ async def handle_media_group(messages: list[Message], state: FSMContext, db_sess
                     await delete_file_from_gemini(name)
                 except Exception as e:
                     logger.error(f"Failed to delete old file {name} for user {user_id}: {e}")
-        
+
         # --- 2. Download photos and collect captions ---
         captions = []
         file_names = []
-        for msg in messages:
+        for msg in album:
             if msg.caption:
                 captions.append(msg.caption)
             if msg.photo:
@@ -198,16 +200,17 @@ async def handle_media_group(messages: list[Message], state: FSMContext, db_sess
                 file_names.append(uploaded_file.name)
             else:
                 logger.error(f"Failed to upload file {file_path} for user {user_id}")
-        
+
         if not file_names:
-            await status_message.edit_text(settings.texts.error_file_upload)
+            await status_message.edit_text(settings.texts.media_error)
             return
 
         # --- 4. Store file_names in FSM context and prepare request ---
         await state.update_data(file_names=file_names)
-        
+
         user_content = " ".join(captions) if captions else settings.texts.photo_no_caption
-        proxy_message = messages[0].copy(update={'text': user_content, 'photo': None})
+        # Create a proxy message to pass to the main handler
+        proxy_message = message.copy(update={'text': user_content, 'photo': None, 'caption': None})
 
         # --- 5. Handle Request ---
         await handle_user_request(
@@ -219,7 +222,7 @@ async def handle_media_group(messages: list[Message], state: FSMContext, db_sess
         )
 
     except Exception as e:
-        logger.error(f"Error handling media group for user {user_id}: {e}", exc_info=True)
+        logger.error(f"Error handling album for user {user_id}: {e}", exc_info=True)
         await status_message.edit_text(settings.texts.error_message)
 
     finally:
@@ -231,16 +234,6 @@ async def handle_media_group(messages: list[Message], state: FSMContext, db_sess
                     logger.info(f"Temporary file {file_path} deleted.")
                 except OSError as e:
                     logger.error(f"Error deleting temporary file {file_path}: {e}", exc_info=True)
-
-
-@router.message(F.photo)
-@log_user_action
-async def handle_photo(message: Message, state: FSMContext, db_session: Session, bot: Bot):
-    """Catches photos and passes them to the media group handler."""
-    # This function now acts as an entry point, delegating the actual logic
-    # to the media group cache and handler. This allows us to gracefully
-    # handle both single photos and albums (media groups) with the same logic.
-    await add_message_to_group(message, lambda msgs: handle_media_group(msgs, state, db_session, bot))
 
 
 async def _run_experts_and_synthesizer(
