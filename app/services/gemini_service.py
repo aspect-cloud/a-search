@@ -108,10 +108,10 @@ async def generate_response(
     ]
 
     config = types.GenerateContentConfig(
+        generation_config=settings.generation_config,
         safety_settings=safety_settings,
         tools=tools,
         system_instruction=settings.prompts.get_synthesizer_by_mode(mode),
-        **settings.generation_config,
     )
 
     try:

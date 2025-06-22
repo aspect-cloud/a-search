@@ -229,7 +229,7 @@ async def _run_experts_and_synthesizer(
 
         # First call to get function call
         response = await generate_response(
-            user=user, mode=mode, prompt=expert_prompt, has_files=False, is_rag_expert=True
+            user=user, mode=mode, prompt=prompt, has_files=False, is_rag_expert=is_rag_expert
         )
 
         opinion = None
