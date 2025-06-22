@@ -5,7 +5,7 @@ from typing import Coroutine, Any, Callable
 from aiogram.types import Message
 
 
-file_handler = logging.FileHandler('user_actions.log', encoding='utf-8')
+file_handler = logging.FileHandler('/tmp/user_actions.log', encoding='utf-8')
 file_handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
 
 action_logger = logging.getLogger('user_actions')
