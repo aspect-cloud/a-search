@@ -223,9 +223,10 @@ async def _run_experts_and_synthesizer(
 ) -> Tuple[Optional[GeminiResponse], Optional[str]]:
     expert_opinions = []
     ddg_queries = []
-    expert_prompts = settings.prompts.experts
+    expert_prompts = settings.prompts.get_experts_by_mode(mode)
 
-    for expert_name, expert_details in expert_prompts.items():
+    for expert_details in expert_prompts:
+        expert_name = expert_details["name"]
         await update_callback(f"Consulting {expert_name}...")
         expert_prompt = expert_details["prompt"]
         is_rag_expert = expert_details["rag"]
