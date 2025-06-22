@@ -20,5 +20,5 @@ duckduckgo_search_tool = types.Tool(
 )
 
 url_context_tool = types.Tool(
-    url_context=types.UrlContext()
+    url_context=types.UrlContext
 )

@@ -1,6 +1,6 @@
 aiogram==3.7.0
 python-dotenv==1.0.1
-google-genai==0.1.0
+google-genai
 sqlalchemy==2.0.30
 alembic==1.13.1
 asyncpg==0.29.0
