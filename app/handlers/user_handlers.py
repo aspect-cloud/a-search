@@ -8,8 +8,9 @@ from aiogram import F, Router, Bot
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
-from google.generativeai.types import content_types as types
+from google import genai
 from sqlalchemy.orm import Session
+from aiohttp import ClientSession
 
 from app.config import settings
 from app.db.crud import get_or_create_user, add_message_to_history
@@ -160,7 +161,7 @@ async def handle_album(message: Message, state: FSMContext, db_session: Session,
 
 
 async def _run_experts_and_synthesizer(
-    mode: str, user_content: str, history: list, update_callback: callable, bot: Bot, file_names: Optional[list[str]], api_key: str
+    mode: str, user_content: str, history: list, update_callback: callable, session: ClientSession, file_names: Optional[list[str]], api_key: str
 ) -> Tuple[Optional[GeminiResponse], Optional[str]]:
     expert_opinions = []
     ddg_queries = []
@@ -171,31 +172,58 @@ async def _run_experts_and_synthesizer(
         expert_prompt = expert_details["prompt"]
         is_rag_expert = expert_details["rag"]
 
+        # First call to get function call
         response = await generate_response(
             mode=mode, user_content=user_content, system_prompt=expert_prompt,
-            history=history, is_rag_expert=is_rag_expert, bot=bot, file_names=file_names, api_key=api_key
+            history=history, is_rag_expert=is_rag_expert, file_names=file_names, api_key=api_key
         )
 
         opinion = None
         if response and response.function_calls:
             if is_rag_expert:
-                for call in response.function_calls:
-                    if call.name == "search_duckduckgo":
-                        query = call.args.get("query", "")
-                        ddg_queries.append(query)
-                        await update_callback(f"Searching for: <code>{html.escape(query)}</code>")
-                        search_results = await get_instant_answer(query, bot.session)
-                        new_history = history + [
-                            {'role': 'user', 'parts': [user_content]},
-                            response.to_dict(),
-                            {'role': 'model', 'parts': [types.ToolPart(function_call=call)]},
-                            {'role': 'user', 'parts': [types.ToolPart(function_response=types.FunctionResponse(name='search_duckduckgo', response={'result': search_results}))]}
-                        ]
-                        final_expert_response = await generate_response(
-                            mode=mode, user_content=None, system_prompt=expert_prompt,
-                            history=new_history, is_rag_expert=is_rag_expert, bot=bot, file_names=file_names, api_key=api_key
-                        )
-                        opinion = final_expert_response.text
+                # Assuming one function call for simplicity as in original logic
+                call = response.function_calls[0]
+                if call.name == "search_duckduckgo":
+                    query = call.args.get("query", "")
+                    ddg_queries.append(query)
+                    await update_callback(f"Searching for: <code>{html.escape(query)}</code>")
+                    
+                    search_results = await get_instant_answer(query, session)
+
+                    # The history already contains the initial user prompt
+                    # We add the model's response (the function call) and the tool's response
+                    model_turn_with_tool_call = {
+                        "role": "model",
+                        "parts": [{"function_call": call}]
+                    }
+                    tool_response_turn = {
+                        "role": "tool",
+                        "parts": [{
+                            "function_response": {
+                                "name": "search_duckduckgo",
+                                "response": {"result": search_results}
+                            }
+                        }]
+                    }
+                    
+                    # The original history, plus the user message that triggered the tool use, plus the tool use itself
+                    new_history = history + [
+                        {'role': 'user', 'parts': [user_content]},
+                        model_turn_with_tool_call,
+                        tool_response_turn
+                    ]
+
+                    # Second call to get the final opinion
+                    final_expert_response = await generate_response(
+                        mode=mode, 
+                        user_content=None, # No new user content
+                        system_prompt=expert_prompt,
+                        history=new_history, 
+                        is_rag_expert=is_rag_expert, 
+                        file_names=file_names, 
+                        api_key=api_key
+                    )
+                    opinion = final_expert_response.text
         else:
             opinion = response.text if response else None
 
@@ -209,9 +237,10 @@ async def _run_experts_and_synthesizer(
     synthesizer_prompt = settings.prompts.synthesizer
     synthesis_context = "\n\n".join(expert_opinions)
 
+    # Final synthesizer call
     final_response = await generate_response(
         mode=mode, user_content=synthesis_context, system_prompt=synthesizer_prompt,
-        history=[], is_rag_expert=False, bot=bot, file_names=file_names, api_key=api_key
+        history=[], is_rag_expert=False, file_names=file_names, api_key=api_key
     )
     ddg_query_used = ", ".join(sorted(list(set(ddg_queries)))) if ddg_queries else None
     return final_response, ddg_query_used
@@ -261,12 +290,12 @@ async def handle_user_request(
             system_prompt = settings.prompts.fast
             response_obj = await generate_response(
                 mode=mode, user_content=user_content, system_prompt=system_prompt,
-                bot=bot, history=chat_history, is_rag_expert=False, file_names=file_names, api_key=api_key
+                history=chat_history, is_rag_expert=False, file_names=file_names, api_key=api_key
             )
         elif mode in ["reasoning", "agent"]:
             response_obj, ddg_query_used = await _run_experts_and_synthesizer(
                 mode=mode, user_content=user_content, history=chat_history,
-                update_callback=update_status, bot=bot, file_names=file_names, api_key=api_key
+                update_callback=update_status, session=bot.session, file_names=file_names, api_key=api_key
             )
 
         final_text = response_obj.text if response_obj else settings.texts.error_message
