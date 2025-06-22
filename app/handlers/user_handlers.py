@@ -35,10 +35,13 @@ router = Router()
 @log_user_action
 async def start(message: Message, state: FSMContext, db_session: Session):
     get_or_create_user(db_session, message.from_user.id)
+    user_name = html.escape(message.from_user.full_name)
     await state.clear()
     await state.set_state(UserState.MODE_SELECTION)
     await message.answer(
-        settings.texts.start_message, reply_markup=main_reply_keyboard()
+        settings.texts.start_message.format(user_name=user_name),
+        reply_markup=main_reply_keyboard(),
+        parse_mode="HTML",
     )
 
 
