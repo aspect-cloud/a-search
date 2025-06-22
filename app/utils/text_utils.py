@@ -17,18 +17,14 @@ def strip_html_tags(text: str) -> str:
 
     # List of HTML tags supported by Telegram Bot API
     supported_tags = [
-        'b', 'strong', 'i', 'em', 'a', 'code', 'pre', 's', 'strike', 'del', 'u', 'ins', 'tg-spoiler'
+        'b', 'i', 'code', 's', 'u', 'pre', 'a'
     ]
 
     def replace_unsupported_tags(match):
         tag_name = match.group(2).lower()
         attributes = match.group(3) if match.group(3) else ''
 
-        if tag_name == 'span' and 'class="tg-spoiler"' in attributes.lower():
-            return match.group(0)  # Keep <span class="tg-spoiler">
-        elif tag_name == 'tg-spoiler':
-            return match.group(0) # Keep <tg-spoiler>
-        elif tag_name in supported_tags:
+        if tag_name in supported_tags:
             return match.group(0)  # Keep the tag if it's supported
         else:
             return ''  # Remove the tag if it's not supported

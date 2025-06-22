@@ -363,7 +363,7 @@ async def handle_user_request(
         if mode == "fast":
             response_obj = await generate_response(
                 db_session=db_session, user=user_db, mode=mode, prompt=prompt, has_files=uploaded_files_parts is not None, is_rag_expert=False,
-                system_instruction=settings.prompts.fast_prompt
+                system_instruction=settings.prompts.fast
             )
         elif mode in ["reasoning", "agent"]:
             response_obj, ddg_query_used = await _run_experts_and_synthesizer(
