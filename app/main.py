@@ -20,6 +20,7 @@ async def main():
         from app.db.database import async_init_db, AsyncSessionLocal
         from app.handlers import user_handlers
         from app.middlewares.db_middleware import DbSessionMiddleware
+        from app.middlewares.album_middleware import AlbumMiddleware
         from app.services.api_key_manager import initialize_api_key_manager
         from aiogram import Bot, Dispatcher
         from aiogram.client.bot import DefaultBotProperties
@@ -43,6 +44,7 @@ async def main():
 
 
         dp.update.middleware(DbSessionMiddleware(session_pool=AsyncSessionLocal))
+        dp.update.middleware(AlbumMiddleware())
         dp.include_router(user_handlers.router)
         logger.info("Middlewares and routers are registered.")
 

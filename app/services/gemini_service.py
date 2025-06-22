@@ -35,9 +35,10 @@ async def upload_file_to_gemini(
     """Uploads a file to Gemini and returns a Part object for use in a prompt."""
     client = genai.Client(api_key=api_key)
     try:
-        uploaded_file = await client.aio.files.upload(
-            path=file_path, display_name=display_name
-        )
+        with open(file_path, 'rb') as f:
+            uploaded_file = await client.aio.files.upload(
+                file=f, display_name=display_name
+            )
         logger.info(f"Uploaded file '{uploaded_file.display_name}' as: {uploaded_file.uri}")
         return types.Part.from_uri(uri=uploaded_file.uri, mime_type=uploaded_file.mime_type)
     except Exception as e:

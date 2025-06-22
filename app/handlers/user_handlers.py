@@ -87,6 +87,7 @@ async def reset_command(message: Message, state: FSMContext, db_session: Session
     # --- Finalize State and Notify User ---
     await state.clear()
     await state.set_state(UserState.MODE_SELECTION)
+    await state.update_data(mode=None) # Clear the mode
     await message.answer(
         settings.texts.history_cleared,
         reply_markup=main_reply_keyboard(),
