@@ -286,7 +286,7 @@ async def _run_experts_and_synthesizer(
 
     # Final synthesizer call
     final_response = await generate_response(
-        user_id=user_id, mode=mode, prompt=synthesis_context, is_rag_expert=False
+        user_id=user_id, mode=mode, prompt=synthesis_context, has_files=False, is_rag_expert=False
     )
     ddg_query_used = ", ".join(sorted(list(set(ddg_queries)))) if ddg_queries else None
     return final_response, ddg_query_used
@@ -343,7 +343,7 @@ async def handle_user_request(
 
         if mode == "fast":
             response_obj = await generate_response(
-                user_id=user_id, mode=mode, prompt=prompt, is_rag_expert=False
+                user_id=user_id, mode=mode, prompt=prompt, has_files=file_names is not None, is_rag_expert=False
             )
         elif mode in ["reasoning", "agent"]:
             response_obj, ddg_query_used = await _run_experts_and_synthesizer(
