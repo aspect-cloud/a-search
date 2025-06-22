@@ -1,7 +1,10 @@
 import logging
 import time
 import threading
+from contextlib import contextmanager
 from typing import Optional, List, Dict, Tuple
+
+from google.api_core import exceptions as google_exceptions
 
 
 
@@ -73,6 +76,33 @@ class ApiKeyManager:
             if api_key in self.keys:
                 self.keys[api_key]["available_at"] = 0
                 logging.info(f"API key ...{api_key[-4:]} was released from cooldown after successful use.")
+
+    @contextmanager
+    def get_key_for_session(self):
+        """
+        A context manager to provide a single API key for the duration of a session.
+        Handles key release and failure reporting automatically.
+        """
+        key = self.get_key()
+        if not key:
+            raise RuntimeError("Could not acquire an API key for the session.")
+
+        try:
+            yield key
+            # If the block completes without error, release the key for immediate reuse.
+            self.release_key(key)
+        except google_exceptions.PermissionDenied as e:
+            logging.error(f"Permanent failure (Permission Denied) for key ...{key[-4:]}. Marking as failed.")
+            self.report_failure(key, is_rate_limit=False)
+            raise e
+        except google_exceptions.ResourceExhausted as e:
+            logging.warning(f"Rate limit hit for key ...{key[-4:]}. Putting on cooldown.")
+            self.report_failure(key, is_rate_limit=True)
+            raise e
+        except Exception as e:
+            logging.error(f"An unexpected error occurred with key ...{key[-4:]}. Putting on cooldown as a precaution.")
+            self.report_failure(key, is_rate_limit=True)
+            raise e
 
 
 
