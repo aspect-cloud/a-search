@@ -46,6 +46,7 @@ async def upload_file_to_gemini(
 
 
 async def generate_response(
+        db_session: User,
         user: User,
         mode: str,
         prompt: Union[str, List[Union[str, types.Part]]],
@@ -65,7 +66,7 @@ async def generate_response(
     logger.info(f"Initiating Gemini call for mode='{mode}' with model='{model_name}' using key ...{api_key[-4:]}")
 
     # --- Content Construction (New SDK) ---
-    history = await asyncio.to_thread(build_gemini_history, user, has_files)
+    history = await build_gemini_history(db_session, user, has_files)
     
     current_parts = []
     if isinstance(prompt, str):

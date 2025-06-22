@@ -215,7 +215,7 @@ async def handle_album(message: Message, state: FSMContext, db_session: Session,
 
 
 async def _run_experts_and_synthesizer(
-    user: User, mode: str, prompt: Union[str, List[Union[str, genai.types.Part]]], update_callback: callable, session: ClientSession, api_key: str
+    db_session: Session, user: User, mode: str, prompt: Union[str, List[Union[str, genai.types.Part]]], update_callback: callable, session: ClientSession, api_key: str
 ) -> Tuple[Optional[GeminiResponse], Optional[str]]:
     expert_opinions = []
     ddg_queries = []
@@ -228,7 +228,7 @@ async def _run_experts_and_synthesizer(
 
         # First call to get function call
         response = await generate_response(
-            user=user, mode=mode, prompt=prompt, has_files=False, is_rag_expert=is_rag_expert
+            db_session=db_session, user=user, mode=mode, prompt=prompt, has_files=False, is_rag_expert=is_rag_expert
         )
 
         opinion = None
@@ -264,6 +264,7 @@ async def _run_experts_and_synthesizer(
                     # The tool-use turns will be handled by the Gemini service if we re-call it.
                     # For this flow, we will just use the search results directly.
                     final_expert_response = await generate_response(
+                        db_session=db_session,
                         user_id=user_id,
                         mode=mode,
                         prompt=f"{prompt}\nSearch results for '{query}':\n{search_results}",
@@ -285,7 +286,7 @@ async def _run_experts_and_synthesizer(
 
     # Final synthesizer call
     final_response = await generate_response(
-        user=user, mode=mode, prompt=synthesis_context, has_files=False, is_rag_expert=False
+        db_session=db_session, user=user, mode=mode, prompt=synthesis_context, has_files=False, is_rag_expert=False
     )
     ddg_query_used = ", ".join(sorted(list(set(ddg_queries)))) if ddg_queries else None
     return final_response, ddg_query_used
@@ -326,7 +327,7 @@ async def handle_user_request(
         mode = user_data.get("mode")
         file_names = user_data.get("file_names")
 
-        user_db = get_or_create_user(db_session, user_id)
+        user_db = await get_or_create_user(db_session, user_id)
 
         response_obj, ddg_query_used = None, None
 
@@ -341,17 +342,17 @@ async def handle_user_request(
 
         if mode == "fast":
             response_obj = await generate_response(
-                user=user_db, mode=mode, prompt=prompt, has_files=file_names is not None, is_rag_expert=False
+                db_session=db_session, user=user_db, mode=mode, prompt=prompt, has_files=file_names is not None, is_rag_expert=False
             )
         elif mode in ["reasoning", "agent"]:
             response_obj, ddg_query_used = await _run_experts_and_synthesizer(
-                user=user_db, mode=mode, prompt=prompt,
+                db_session=db_session, user=user_db, mode=mode, prompt=prompt,
                 update_callback=update_status, session=bot.session, api_key=api_key
             )
 
         final_text = response_obj.text if response_obj else settings.texts.error_message
-        add_message_to_history(db_session, user_id, "user", user_content)
-        add_message_to_history(db_session, user_id, "assistant", final_text)
+        await add_message_to_history(db_session, user_id, "user", user_content)
+        await add_message_to_history(db_session, user_id, "assistant", final_text)
 
         response_message = final_text
         if ddg_query_used:

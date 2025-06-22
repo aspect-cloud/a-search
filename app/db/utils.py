@@ -5,22 +5,21 @@ from . import crud
 from .models import User, History
 
 
-def build_gemini_history(user: User, has_files: bool) -> List[Dict[str, any]]:
+async def build_gemini_history(
+    db_session: Session, user: User, has_files: bool
+) -> List[Dict[str, any]]:
     """
     Builds a chat history for the Gemini API from the user's database records.
 
     Args:
+        db_session: The database session.
         user: The user object from the database.
         has_files: Boolean indicating if files are part of the context.
 
     Returns:
         A list of dictionaries formatted for the Gemini API.
     """
-    db_session: Session = object_session(user)
-    if not db_session:
-        raise RuntimeError("User object is not bound to a session.")
-
-    history_records: List[History] = crud.get_user_history(db_session, user.id)
+    history_records: List[History] = await crud.get_user_history(db_session, user.id)
 
     gemini_history = []
     for record in history_records:
