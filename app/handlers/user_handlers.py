@@ -184,22 +184,24 @@ async def handle_album(message: Message, state: FSMContext, db_session: Session,
                     downloaded_files.append(temp_file_path)
 
             await status_message.edit_text(settings.texts.uploading_to_google, parse_mode="HTML")
+            uploaded_files_parts = []
             for file_path in downloaded_files:
                 uploaded_file = await upload_file_to_gemini(file_path, api_key=api_key)
                 if uploaded_file:
-                    file_names.append(uploaded_file.name)
+                    uploaded_files_parts.append(uploaded_file)
 
-            if not file_names:
+            if not uploaded_files_parts:
                 await status_message.edit_text(settings.texts.media_error)
                 return
 
-            await state.update_data(file_names=file_names)
+            await state.update_data(uploaded_files_parts=uploaded_files_parts)
             user_content = " ".join(captions) if captions else settings.texts.photo_no_caption
-            proxy_message = message.copy(update={'text': user_content, 'photo': None, 'caption': None})
+            proxy_message = message.copy(update={'text': user_content, 'photo': None, 'caption': None, 'uploaded_files_parts': uploaded_files_parts})
 
             await handle_user_request(
                 message=proxy_message, state=state, db_session=db_session, bot=bot,
-                status_message=status_message, api_key=api_key
+                status_message=status_message, api_key=api_key,
+                uploaded_files_parts=uploaded_files_parts
             )
 
     except Exception as e:
@@ -216,7 +218,8 @@ async def handle_album(message: Message, state: FSMContext, db_session: Session,
 
 
 async def _run_experts_and_synthesizer(
-    db_session: Session, user: User, mode: str, prompt: Union[str, List[Union[str, genai.types.Part]]], update_callback: callable, session: ClientSession, api_key: str
+    db_session: Session, user: User, mode: str, prompt: Union[str, List[Union[str, genai.types.Part]]], update_callback: callable, session: ClientSession, api_key: str,
+    uploaded_files_parts: Optional[List[genai.types.Part]] = None,
 ) -> Tuple[Optional[GeminiResponse], Optional[str]]:
     expert_opinions = []
     ddg_queries = []
@@ -229,7 +232,7 @@ async def _run_experts_and_synthesizer(
 
         # First call to get function call
         response = await generate_response(
-            db_session=db_session, user=user, mode=mode, prompt=prompt, has_files=False, is_rag_expert=is_rag_expert
+            db_session=db_session, user=user, mode=mode, prompt=prompt, has_files=uploaded_files_parts is not None, is_rag_expert=is_rag_expert
         )
 
         opinion = None
@@ -266,9 +269,10 @@ async def _run_experts_and_synthesizer(
                     # For this flow, we will just use the search results directly.
                     final_expert_response = await generate_response(
                         db_session=db_session,
-                        user_id=user_id,
+                        user=user,
                         mode=mode,
                         prompt=f"{prompt}\nSearch results for '{query}':\n{search_results}",
+                        has_files=uploaded_files_parts is not None,
                         is_rag_expert=is_rag_expert
                     )
                     opinion = final_expert_response.text
@@ -287,7 +291,7 @@ async def _run_experts_and_synthesizer(
 
     # Final synthesizer call
     final_response = await generate_response(
-        db_session=db_session, user=user, mode=mode, prompt=synthesis_context, has_files=False, is_rag_expert=False
+        db_session=db_session, user=user, mode=mode, prompt=synthesis_context, has_files=uploaded_files_parts is not None, is_rag_expert=False
     )
     ddg_query_used = ", ".join(sorted(list(set(ddg_queries)))) if ddg_queries else None
     return final_response, ddg_query_used
@@ -297,7 +301,8 @@ async def _run_experts_and_synthesizer(
 @log_user_action
 async def handle_user_request(
     message: Message, state: FSMContext, db_session: Session, bot: Bot,
-    status_message: Optional[Message] = None, api_key: Optional[str] = None
+    status_message: Optional[Message] = None, api_key: Optional[str] = None,
+    uploaded_files_parts: Optional[List[genai.types.Part]] = None,
 ):
     user_id = message.from_user.id
     user_content = message.text
@@ -332,23 +337,21 @@ async def handle_user_request(
 
         response_obj, ddg_query_used = None, None
 
-        prompt_parts: List[Union[str, genai.types.Part]] = [user_content]
-        if file_names:
-            # This part is simplified; in a real scenario, you'd fetch the actual file parts
-            # For now, we assume file_names are URIs or some identifier Gemini understands.
-            # The correct implementation would be to get the `types.Part` from the upload function.
-            logger.warning("File handling in user_handlers is simplified and may not work as expected.")
+        prompt_parts: List[Union[str, genai.types.Part]] = [genai.types.Part(text=user_content)]
+        if uploaded_files_parts:
+            prompt_parts.extend(uploaded_files_parts)
 
-        prompt = user_content if not file_names else prompt_parts
+        prompt = prompt_parts
 
         if mode == "fast":
             response_obj = await generate_response(
-                db_session=db_session, user=user_db, mode=mode, prompt=prompt, has_files=file_names is not None, is_rag_expert=False
+                db_session=db_session, user=user_db, mode=mode, prompt=prompt, has_files=uploaded_files_parts is not None, is_rag_expert=False
             )
         elif mode in ["reasoning", "agent"]:
             response_obj, ddg_query_used = await _run_experts_and_synthesizer(
                 db_session=db_session, user=user_db, mode=mode, prompt=prompt,
-                update_callback=update_status, session=bot.session, api_key=api_key
+                update_callback=update_status, session=bot.session, api_key=api_key,
+                uploaded_files_parts=uploaded_files_parts
             )
 
         final_text = response_obj.text if response_obj else settings.texts.error_message
