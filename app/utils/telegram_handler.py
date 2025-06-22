@@ -1,5 +1,6 @@
 import logging
 import asyncio
+import html
 from aiogram import Bot
 from app.core.config import settings
 
@@ -11,7 +12,7 @@ class TelegramHandler(logging.Handler):
     def emit(self, record):
         log_entry = self.format(record)
         # Escape HTML for safe rendering inside <pre> tag
-        log_entry_escaped = logging.escape(log_entry)
+        log_entry_escaped = html.escape(log_entry)
 
         if settings.admin_id:
             try:
