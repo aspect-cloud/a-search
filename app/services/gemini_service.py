@@ -85,7 +85,7 @@ async def generate_response(
         return GeminiResponse(text=settings.texts.error_message, finish_reason="ERROR")
 
     client = genai.Client(api_key=api_key)
-    model_name = settings.gemini_model_config.get(mode, "gemini-1.5-flash-latest")
+    model_name = settings.model_config.get(mode, "gemini-1.5-flash-latest")
     logger.info(f"Initiating Gemini call for mode='{mode}' with model='{model_name}' using key ...{api_key[-4:]}")
 
     # --- Content Construction ---
@@ -110,7 +110,7 @@ async def generate_response(
     tools = []
     if is_rag_expert:
         logger.info("RAG expert mode. No tools will be passed to the Gemini API.")
-    elif mode in settings.internal_search_enabled_modes:
+    elif mode in settings.search_enabled_modes:
         tools.append(genai.types.Tool(google_search=genai.types.GoogleSearch()))
         tools.append(duckduckgo_search_tool)
         tools.append(url_context_tool)
@@ -125,7 +125,7 @@ async def generate_response(
 
     safety_settings = {
         category.name: threshold.name
-        for category, threshold in settings.gemini_safety_settings.items()
+        for category, threshold in settings.safety_settings.items()
     }
 
     try:
@@ -148,14 +148,3 @@ async def generate_response(
     except Exception as e:
         logger.error(f"An unexpected error occurred during Gemini API call: {e}", exc_info=True)
         return GeminiResponse(text=settings.texts.error_message, finish_reason="ERROR")
-
-        return GeminiResponse(
-            text=response_text,
-            function_call=function_calls,
-            finish_reason=finish_reason_name,
-            candidates=response.candidates
-        )
-
-    except (IndexError, AttributeError) as e:
-        logger.error(f"Error processing Gemini response: {e}. Full response: {response}", exc_info=True)
-        return GeminiResponse(text=settings.texts.empty_response, finish_reason="PROCESSING_ERROR")
