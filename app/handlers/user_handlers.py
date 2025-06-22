@@ -12,7 +12,7 @@ from google import genai
 from sqlalchemy.orm import Session
 from aiohttp import ClientSession
 
-from app.config import settings
+from app.core.config import settings
 from app.db.crud import get_or_create_user, add_message_to_history
 from app.db.utils import build_gemini_history
 from app.keyboards.reply import main_reply_keyboard

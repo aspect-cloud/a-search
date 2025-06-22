@@ -5,7 +5,7 @@ from typing import List, Optional, Dict, Any, Union
 from google import genai
 from google.api_core import exceptions as google_exceptions
 
-from app.config import settings
+from app.core.config import settings
 from app.schemas.gemini_schemas import GeminiResponse
 from app.schemas.tools import duckduckgo_search_tool, url_context_tool
 
