@@ -1,9 +1,12 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
+import os
 
 from app.db.models import Base
 
-DATABASE_URL = "sqlite+aiosqlite:///db/as_search_bot.db"
+# Use /tmp for the database in a serverless environment like Vercel
+db_path = "/tmp/as_search_bot.db"
+DATABASE_URL = f"sqlite+aiosqlite:///{db_path}"
 
 engine = create_async_engine(DATABASE_URL, echo=False)
 

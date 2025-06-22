@@ -10,7 +10,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 sys.path.append(os.path.join(os.path.dirname(__file__), 'app'))
 
 from app.core.config import settings
-from app.db.database import init_db, SessionLocal
+from app.db.database import async_init_db, AsyncSessionLocal as SessionLocal
 from app.handlers import user_handlers
 from app.middlewares.db_middleware import DbSessionMiddleware
 from app.middlewares.session_middleware import AiogramSessionMiddleware
@@ -23,30 +23,39 @@ logger = logging.getLogger(__name__)
 
 BOT_TOKEN = settings.bot_token
 
-try:
-    init_db()
-    initialize_api_key_manager(settings.gemini_api_keys)
+bot = Bot(
+    token=BOT_TOKEN,
+    default=DefaultBotProperties(parse_mode=ParseMode.HTML)
+)
 
-    bot = Bot(
-        token=BOT_TOKEN,
-        default=DefaultBotProperties(parse_mode=ParseMode.HTML)
-    )
+storage = MemoryStorage()
+dp = Dispatcher(storage=storage)
 
-    storage = MemoryStorage()
-    dp = Dispatcher(storage=storage)
-
-    dp.update.outer_middleware(AiogramSessionMiddleware())
-    dp.update.middleware(DbSessionMiddleware(session_pool=SessionLocal))
-    user_handlers.router.message.middleware(AlbumMiddleware())
-    dp.include_router(user_handlers.router)
-
-    logger.info("Bot and Dispatcher initialized.")
-
-except Exception as e:
-    logger.critical(f"Failed to initialize bot components: {e}", exc_info=True)
-    sys.exit(1)
+dp.update.outer_middleware(AiogramSessionMiddleware())
+dp.update.middleware(DbSessionMiddleware(session_pool=SessionLocal))
+user_handlers.router.message.middleware(AlbumMiddleware())
+dp.include_router(user_handlers.router)
 
 app = Flask(__name__)
+
+async def on_startup():
+    await async_init_db()
+    initialize_api_key_manager(settings.gemini_api_keys)
+    webhook_url = f'{settings.webhook_url.rstrip("/")}/{BOT_TOKEN}'
+    await bot.set_webhook(webhook_url)
+    logger.info(f"Webhook set to {webhook_url}")
+
+# Run startup tasks
+import asyncio
+
+# This is a bit of a hack for Vercel's environment.
+# We run the async startup function in a blocking way.
+try:
+    asyncio.get_event_loop().run_until_complete(on_startup())
+except Exception as e:
+    logger.critical(f"Failed to complete startup: {e}", exc_info=True)
+    # We don't exit here, as it might be a temporary issue
+    # and we want the Flask app to be available for Vercel's health checks.
 
 @app.route(f'/{BOT_TOKEN}', methods=['POST'])
 async def webhook():

@@ -148,6 +148,7 @@ class Settings:
     available_modes: List[str] = field(default_factory=lambda: ["🚀 Быстрый", "🧠 Вдумчивый", "🤖 Агент"])
     # --- Core settings ---
     bot_token: str = getenv("BOT_TOKEN")
+    webhook_url: str = getenv("WEBHOOK_URL")
     admin_id: int = int(getenv("ADMIN_ID", 0))
     LIFECYCLE_EVENT_QUEUE_ID: Optional[str] = getenv("LIFECYCLE_EVENT_QUEUE_ID")
     LIFECYCLE_EVENT_OBJECT_ID: Optional[str] = getenv("LIFECYCLE_EVENT_OBJECT_ID")
