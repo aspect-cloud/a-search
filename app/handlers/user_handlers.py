@@ -299,7 +299,8 @@ async def handle_user_request(
             )
 
         final_text = response_obj.text if response_obj else settings.texts.error_message
-        add_message_to_history(db_session, user_id, user_content, final_text, file_names)
+        add_message_to_history(db_session, user_id, "user", user_content)
+        add_message_to_history(db_session, user_id, "assistant", final_text)
 
         response_message = final_text
         if ddg_query_used:
