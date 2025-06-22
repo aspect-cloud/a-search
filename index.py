@@ -41,9 +41,9 @@ app = Flask(__name__)
 async def on_startup():
     await async_init_db()
     initialize_api_key_manager(settings.gemini_api_keys)
-    webhook_url = f'{settings.webhook_url.rstrip("/")}/{BOT_TOKEN}'
-    await bot.set_webhook(webhook_url)
-    logger.info(f"Webhook set to {webhook_url}")
+    # webhook_url = f'{settings.webhook_url.rstrip("/")}/{BOT_TOKEN}'
+    # await bot.set_webhook(webhook_url)
+    # logger.info(f"Webhook set to {webhook_url}")
 
 # Run startup tasks
 import asyncio
