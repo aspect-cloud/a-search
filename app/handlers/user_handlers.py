@@ -78,6 +78,20 @@ async def reset_command(message: Message, state: FSMContext, db_session: Session
     await message.answer(settings.texts.reset_message, reply_markup=main_reply_keyboard())
 
 
+@router.message(F.text == settings.buttons.help)
+@log_user_action
+async def help_button_handler(message: Message):
+    """Handles the 'Help' button press."""
+    await help_command(message)
+
+
+@router.message(F.text == settings.buttons.clear_history)
+@log_user_action
+async def reset_button_handler(message: Message, state: FSMContext, db_session: Session):
+    """Handles the 'Clear History' button press."""
+    await reset_command(message, state, db_session)
+
+
 @router.message(UserState.MODE_SELECTION, F.text.in_(settings.available_modes))
 @log_user_action
 async def set_mode(message: Message, state: FSMContext):
