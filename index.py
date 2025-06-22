@@ -14,6 +14,7 @@ from app.db.database import init_db, SessionLocal
 from app.handlers import user_handlers
 from app.middlewares.db_middleware import DbSessionMiddleware
 from app.services.api_key_manager import initialize_api_key_manager
+from app.utils.action_logger import setup_telegram_logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,6 +29,7 @@ try:
         token=BOT_TOKEN,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML)
     )
+    setup_telegram_logging(bot)
     storage = MemoryStorage()
     dp = Dispatcher(storage=storage)
 
