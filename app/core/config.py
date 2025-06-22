@@ -219,11 +219,12 @@ class Settings:
         }
 
         # --- Load Gemini Config ---
-        self.generation_config = genai_types.GenerateContentConfig(
-            temperature=0.7,
-            top_p=1.0,
-            top_k=1,
-        )
+        self.generation_config = {
+            "temperature": 0.7,
+            "top_p": 1,
+            "top_k": 1,
+            "max_output_tokens": 2048,
+        }
 
         # --- Configure Search Modes ---
         self.internal_search_enabled_modes = ['fast', 'reasoning', 'agent']
