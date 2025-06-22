@@ -3,7 +3,7 @@ import logging
 import os
 import tempfile
 import asyncio
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Union
 
 from aiogram import F, Router, Bot
 from aiogram.filters import Command
