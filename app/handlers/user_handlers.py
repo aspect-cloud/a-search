@@ -287,7 +287,12 @@ async def _run_experts_and_synthesizer(
         return None, None
 
     await update_callback("Synthesizing opinions...")
-    synthesizer_prompt = settings.prompts.synthesizer
+    if mode == 'reasoning':
+        synthesizer_prompt = settings.prompts.synthesizer_reasoning
+    elif mode == 'agent':
+        synthesizer_prompt = settings.prompts.synthesizer_agent
+    else:
+        synthesizer_prompt = settings.prompts.synthesizer_reasoning # Default or error handling
     synthesis_context = "\n\n".join(expert_opinions)
 
     # Final synthesizer call
