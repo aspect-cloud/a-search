@@ -110,7 +110,7 @@ async def generate_response(
     tools = []
     if is_rag_expert:
         logger.info("RAG expert mode. No tools will be passed to the Gemini API.")
-    elif mode in settings.search_enabled_modes:
+    elif mode in settings.internal_search_enabled_modes:
         tools.append(genai.types.Tool(google_search=genai.types.GoogleSearch()))
         tools.append(duckduckgo_search_tool)
         tools.append(url_context_tool)
