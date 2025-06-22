@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.db.database import init_db, SessionLocal
 from app.handlers import user_handlers
 from app.middlewares.db_middleware import DbSessionMiddleware
+from app.middlewares.session_middleware import AiogramSessionMiddleware
 from app.services.api_key_manager import initialize_api_key_manager
 from app.utils.action_logger import setup_telegram_logging
 
@@ -33,6 +34,7 @@ try:
     storage = MemoryStorage()
     dp = Dispatcher(storage=storage)
 
+    dp.update.outer_middleware(AiogramSessionMiddleware())
     dp.update.middleware(DbSessionMiddleware(session_pool=SessionLocal))
     dp.include_router(user_handlers.router)
 
