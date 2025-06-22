@@ -7,6 +7,7 @@ from google.genai import types
 from google.api_core import exceptions
 
 from app.core.config import settings
+from app.db.models import User
 from app.db.utils import build_gemini_history
 from app.schemas.gemini_schemas import GeminiResponse
 from app.services.api_key_manager import get_api_key_manager
@@ -45,7 +46,7 @@ async def upload_file_to_gemini(
 
 
 async def generate_response(
-        user_id: int,
+        user: User,
         mode: str,
         prompt: Union[str, List[Union[str, types.Part]]],
         has_files: bool,
@@ -64,7 +65,7 @@ async def generate_response(
     logger.info(f"Initiating Gemini call for mode='{mode}' with model='{model_name}' using key ...{api_key[-4:]}")
 
     # --- Content Construction (New SDK) ---
-    history = await asyncio.to_thread(build_gemini_history, user_id, has_files)
+    history = await asyncio.to_thread(build_gemini_history, user, has_files)
     
     current_parts = []
     if isinstance(prompt, str):
@@ -108,12 +109,12 @@ async def generate_response(
 
         # --- Response Processing (New SDK) ---
         if not response.candidates:
-            logger.warning(f"No candidates returned from Gemini for user {user_id}")
+            logger.warning(f"No candidates returned from Gemini for user {user.id}")
             return GeminiResponse(text=settings.texts.empty_response, finish_reason="EMPTY")
 
         if response.prompt_feedback.block_reason:
             logger.warning(
-                f"Response for user {user_id} blocked. Reason: {response.prompt_feedback.block_reason.name}"
+                f"Response for user {user.id} blocked. Reason: {response.prompt_feedback.block_reason.name}"
             )
             return GeminiResponse(text=settings.texts.blocked_response, finish_reason="SAFETY")
 
@@ -127,7 +128,7 @@ async def generate_response(
     except exceptions.PermissionDenied as e:
         logger.error(f"Permission denied for API key ...{api_key[-4:]}: {e}")
         api_key_manager.disable_key(api_key)
-        return await generate_response(user_id, mode, prompt, is_rag_expert)  # Retry
+        return await generate_response(user, mode, prompt, has_files, is_rag_expert)  # Retry
     except Exception as e:
         logger.error(f"An unexpected error occurred during Gemini call: {e}", exc_info=True)
         api_key_manager.release_key(api_key)
