@@ -48,3 +48,14 @@ def strip_markdown_code_blocks(text: str) -> str:
 
     stripped_text = re.sub(pattern, r'\1', text, flags=re.DOTALL)
     return stripped_text.strip()
+
+def normalize_whitespace(text: str) -> str:
+    if not text:
+        return ""
+    # Replace multiple newlines with at most two newlines
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    # Replace multiple spaces with a single space
+    text = re.sub(r' {2,}', ' ', text)
+    # Remove leading/trailing whitespace from each line
+    text = '\n'.join([line.strip() for line in text.split('\n')])
+    return text.strip()

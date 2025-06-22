@@ -13,7 +13,7 @@ from app.db.utils import build_gemini_history
 from app.schemas.gemini_schemas import GeminiResponse
 from app.services.api_key_manager import get_api_key_manager
 from app.schemas.tools import duckduckgo_search_tool, url_context_tool
-from app.utils.text_utils import strip_html_tags
+from app.utils.text_utils import strip_html_tags, normalize_whitespace
 
 logger = logging.getLogger(__name__)
 
@@ -144,7 +144,8 @@ async def generate_response(
         
         text_parts = [part.text for part in response.candidates[0].content.parts if hasattr(part, 'text') and part.text]
         # Ensure all unsupported HTML tags are stripped, and remove leading/trailing whitespace
-        response_text = strip_html_tags(''.join(text_parts)).strip()
+        response_text = strip_html_tags(''.join(text_parts))
+        response_text = normalize_whitespace(response_text)
 
         return GeminiResponse(text=response_text, finish_reason=finish_reason)
 
