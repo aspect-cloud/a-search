@@ -263,7 +263,7 @@ async def _run_experts_and_synthesizer(
     return final_response, ddg_query_used
 
 
-@router.message(UserState.CHATTING, F.text, ~F.text.startswith('/'))
+@router.message(UserState.CHATTING, F.text, ~F.text.startswith('/'), ~F.text.in_(settings.available_modes))
 @log_user_action
 async def handle_user_request(
     message: Message, state: FSMContext, db_session: Session, bot: Bot,
