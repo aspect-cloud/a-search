@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from typing import List
-import google.generativeai.types as genai_types
+import google.genai.types as genai_types
 
 from . import crud
 from .models import User, History
