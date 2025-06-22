@@ -85,7 +85,7 @@ async def generate_response(
         return GeminiResponse(text=settings.texts.error_message, finish_reason="ERROR")
 
     client = genai.Client(api_key=api_key)
-    model_name = settings.model_config.get(mode, "gemini-1.5-flash-latest")
+    model_name = settings.gemini_model_config.get(mode, "gemini-1.5-flash-latest")
     logger.info(f"Initiating Gemini call for mode='{mode}' with model='{model_name}' using key ...{api_key[-4:]}")
 
     # --- Content Construction ---
