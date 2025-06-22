@@ -147,6 +147,19 @@ async def generate_response(
         response_text = strip_html_tags(''.join(text_parts))
         response_text = normalize_whitespace(response_text)
 
+        # Split response_text into multiple parts if it exceeds Telegram's message length limit (4096 characters)
+        max_message_length = 4096
+        if len(response_text) > max_message_length:
+            logger.warning(f"Response length ({len(response_text)}) exceeds Telegram's limit. Splitting into multiple messages.")
+            
+            split_messages = []
+            current_pos = 0
+            while current_pos < len(response_text):
+                end_pos = min(current_pos + max_message_length, len(response_text))
+                split_messages.append(response_text[current_pos:end_pos])
+                current_pos = end_pos
+            return GeminiResponse(text=split_messages, finish_reason=finish_reason)
+        
         return GeminiResponse(text=response_text, finish_reason=finish_reason)
 
     except exceptions.PermissionDenied as e:

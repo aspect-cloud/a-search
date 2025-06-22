@@ -369,14 +369,31 @@ async def handle_user_request(
                 uploaded_files_parts=uploaded_files_parts
             )
 
-        final_text = response_obj.text if response_obj else settings.texts.error_message
+        response_text_or_list = response_obj.text if response_obj else settings.texts.error_message
+        
+        # Convert to list if it's a single string for uniform processing
+        if isinstance(response_text_or_list, str):
+            response_parts = [response_text_or_list]
+        elif isinstance(response_text_or_list, list):
+            response_parts = response_text_or_list
+        else:
+            response_parts = [settings.texts.error_message] # Fallback for unexpected type
+
+        # Log the full response (concatenated if multiple parts) for history
+        full_response_for_history = "\n\n".join(response_parts) if response_parts else settings.texts.empty_response
         await add_message_to_history(db_session, user_id, "user", user_content)
-        await add_message_to_history(db_session, user_id, "assistant", final_text)
+        await add_message_to_history(db_session, user_id, "assistant", full_response_for_history)
 
-        response_message = final_text
+        if not response_parts:
+            await status_message.edit_text(settings.texts.empty_response)
+            return
 
+        # Send the first part by editing the status message
+        await status_message.edit_text(response_parts[0], parse_mode="HTML", disable_web_page_preview=True)
 
-        await status_message.edit_text(response_message, parse_mode="HTML", disable_web_page_preview=True)
+        # Send subsequent parts as new messages
+        for part in response_parts[1:]:
+            await message.answer(part, parse_mode="HTML", disable_web_page_preview=True)
 
     except Exception as e:
         logger.error(f"Error in handle_user_request for user {user_id}: {e}", exc_info=True)

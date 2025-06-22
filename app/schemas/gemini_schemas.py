@@ -19,7 +19,7 @@ class GeminiResponse(BaseModel):
     Represents a response from the Gemini API.
     It can contain generated text, a request to call a function, or both.
     """
-    text: Optional[str] = None
+    text: Optional[Union[str, List[str]]] = None
     function_call: Optional[FunctionCall] = None
     finish_reason: Optional[FinishReason] = None
     # The full list of candidates from the API response, not shown in repr.
