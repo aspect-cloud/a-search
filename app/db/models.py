@@ -12,7 +12,7 @@ class History(Base):
     user_id = Column(BigInteger, nullable=False, index=True)
     role = Column(String, nullable=False)
     content = Column(Text, nullable=False)
-    file_names = Column(JSONB, nullable=True) # New column to store list of file names
+    file_names = Column(JSON, nullable=True) # New column to store list of file names
 
 
 class User(Base):
