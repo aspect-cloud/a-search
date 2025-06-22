@@ -142,7 +142,8 @@ async def generate_response(
         finish_reason = response.candidates[0].finish_reason.name
         
         text_parts = [part.text for part in response.candidates[0].content.parts if hasattr(part, 'text') and part.text]
-        response_text = strip_html_tags(''.join(text_parts))
+        # Ensure all unsupported HTML tags are stripped, and remove leading/trailing whitespace
+        response_text = strip_html_tags(''.join(text_parts)).strip()
 
         return GeminiResponse(text=response_text, finish_reason=finish_reason)
 
