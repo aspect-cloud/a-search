@@ -42,8 +42,7 @@ async def upload_file_to_gemini(
 
         with open(file_path, 'rb') as f:
             uploaded_file = await client.aio.files.upload(
-                file=f,
-                mime_type=mime_type
+                file=f
             )
         logger.info(f"Uploaded file '{uploaded_file.display_name}' as: {uploaded_file.uri}")
         return types.Part.from_uri(uri=uploaded_file.uri, mime_type=uploaded_file.mime_type)
