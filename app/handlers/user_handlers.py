@@ -99,7 +99,7 @@ async def set_mode(message: Message, state: FSMContext):
     await state.update_data(mode=mode)
     await state.set_state(UserState.CHATTING)
     await message.answer(
-        settings.texts.mode_selected.format(mode=mode),
+        settings.texts.mode_selection.format(mode=mode),
         reply_markup=main_reply_keyboard(current_mode=mode),
     )
 
