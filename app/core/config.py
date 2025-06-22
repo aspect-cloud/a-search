@@ -52,6 +52,8 @@ class TextMessages:
 Это значит, что я подмешиваю агентам информацию из поиска, чтобы дать более точный и обоснованный ответ — и снизить риск галлюцинаций.
 <a href="https://github.com/aspect-cloud/a-search">Open-Source</a>.
 
+<a href="https://github.com/aspect-cloud/a-search/activity">...</a>
+
 Просто напиши сообщение
 """)
     mode_selection: str = "Я переключился в режим <b>{mode}</b>. Спрашивай что угодно!"
