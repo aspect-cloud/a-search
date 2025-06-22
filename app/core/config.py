@@ -120,6 +120,8 @@ class Prompts:
     fast: str
     synthesizer_reasoning: str
     synthesizer_agent: str
+    experts_reasoning: Dict[str, Dict[str, Union[str, bool]]]
+    experts_agent: Dict[str, Dict[str, Union[str, bool]]]
     experts: Dict[str, Dict[str, Union[str, bool]]] = field(default_factory=lambda: {
         "analyst_1": {
             "name": "Аналитик 1",
