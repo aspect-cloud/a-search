@@ -40,10 +40,11 @@ async def upload_file_to_gemini(
         if not mime_type:
             mime_type = 'application/octet-stream'  # Default to a generic binary type
 
-        with open(file_path, 'rb') as f:
-            uploaded_file = await client.aio.files.upload(
-                file=f
-            )
+        uploaded_file = await client.aio.files.upload(
+            path=file_path,
+            mime_type=mime_type,
+            display_name=display_name
+        )
         logger.info(f"Uploaded file '{uploaded_file.display_name}' as: {uploaded_file.uri}")
         return types.Part.from_uri(uri=uploaded_file.uri, mime_type=uploaded_file.mime_type)
     except Exception as e:
