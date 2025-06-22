@@ -132,6 +132,19 @@ async def set_mode(message: Message, state: FSMContext):
     )
 
 
+@router.message(UserState.MODE_SELECTION, F.text)
+@log_user_action
+async def prompt_to_select_mode(message: Message):
+    """
+    Catches any text message sent when the user is supposed to be selecting a mode,
+    but the text is not a valid mode. Prompts them to use the keyboard.
+    """
+    await message.answer(
+        settings.texts.select_mode_first,
+        reply_markup=main_reply_keyboard()
+    )
+
+
 @router.message(F.photo)
 @log_user_action
 async def handle_album(message: Message, state: FSMContext, db_session: Session, bot: Bot, album: list[Message]):
