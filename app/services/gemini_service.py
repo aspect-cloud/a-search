@@ -1,150 +1,133 @@
+import asyncio
 import logging
-import json
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Optional, Union
 
 from google import genai
-from google.api_core import exceptions as google_exceptions
+from google.genai import types
+from google.api_core import exceptions
 
 from app.core.config import settings
-from app.schemas.gemini_schemas import GeminiResponse
-from app.schemas.tools import duckduckgo_search_tool, url_context_tool
+from app.db.utils import build_gemini_history
+from app.models.gemini_models import GeminiResponse
+from app.services.api_key_manager import get_api_key_manager
+from app.services.tool_service import duckduckgo_search_tool, url_context_tool
 
 logger = logging.getLogger(__name__)
 
 
-async def upload_file_to_gemini(file_path: str, api_key: str) -> Optional[genai.types.File]:
-    """Uploads a file to the Gemini File API using the new google-genai SDK."""
-    logger.info(f"Uploading file {file_path} with key ...{api_key[-4:]}")
+async def delete_file_from_gemini(file_name: str, api_key: str) -> None:
+    """Deletes a file from Gemini using its name, following the new SDK syntax."""
+    client = genai.Client(api_key=api_key)
     try:
-        client = genai.Client(api_key=api_key)
-        # The new SDK's upload function is synchronous, but we call it from an async func
-        uploaded_file = client.files.upload(file=file_path)
-        logger.info(f"Successfully uploaded file. URI: {uploaded_file.uri}")
-        return uploaded_file
+        await client.aio.files.delete(name=file_name)
+        logger.info(f"Successfully deleted file: {file_name}")
+    except exceptions.NotFound:
+        logger.warning(f"File not found, could not delete: {file_name}")
     except Exception as e:
-        logger.error(f"Failed to upload file {file_path}: {e}", exc_info=True)
+        logger.error(f"An error occurred while deleting file {file_name}: {e}")
+        raise
+
+
+async def upload_file_to_gemini(
+        file_path: str, api_key: str, display_name: Optional[str] = None
+) -> Optional[types.Part]:
+    """Uploads a file to Gemini and returns a Part object for use in a prompt."""
+    client = genai.Client(api_key=api_key)
+    try:
+        uploaded_file = await client.aio.files.upload(
+            path=file_path, display_name=display_name
+        )
+        logger.info(f"Uploaded file '{uploaded_file.display_name}' as: {uploaded_file.uri}")
+        return types.Part.from_uri(uri=uploaded_file.uri, mime_type=uploaded_file.mime_type)
+    except Exception as e:
+        logger.error(f"Failed to upload file {file_path}: {e}")
         return None
 
 
-async def delete_file_from_gemini(file_name: str, api_key: str):
-    """Deletes a file from the Gemini File API using its name."""
-    logger.info(f"Deleting file {file_name} with key ...{api_key[-4:]}")
-    try:
-        client = genai.Client(api_key=api_key)
-        client.files.delete(name=file_name)
-        logger.info(f"Successfully deleted file {file_name}.")
-    except Exception as e:
-        logger.error(f"Failed to delete file {file_name}: {e}", exc_info=True)
-
-
-def _process_gemini_response(response: genai.types.GenerateContentResponse) -> GeminiResponse:
-    """Helper to process the response from Gemini API."""
-    try:
-        candidate = response.candidates[0]
-        finish_reason = candidate.finish_reason.name if candidate.finish_reason else "UNKNOWN"
-
-        if finish_reason in ["SAFETY", "RECITATION"]:
-            logger.warning(f"Content generation stopped due to: {finish_reason}")
-            return GeminiResponse(
-                text=settings.texts.blocked_response,
-                finish_reason=finish_reason,
-                function_calls=None,
-            )
-
-        text_parts = []
-        function_calls = []
-        if candidate.content and candidate.content.parts:
-            for part in candidate.content.parts:
-                if part.function_call:
-                    function_calls.append(part.function_call)
-                if hasattr(part, 'text') and part.text:
-                    text_parts.append(part.text)
-
-        return GeminiResponse(
-            text=''.join(text_parts) if text_parts else None,
-            finish_reason=finish_reason,
-            function_calls=function_calls if function_calls else None,
-        )
-    except (IndexError, AttributeError) as e:
-        logger.error(f"Error processing Gemini response: {e}. Response: {response}", exc_info=True)
-        return GeminiResponse(text=settings.texts.error_message, finish_reason="ERROR")
-
-
 async def generate_response(
-    mode: str,
-    user_content: Union[str, List[Any]],
-    system_prompt: str,
-    history: Optional[List[Dict[str, Any]]] = None,
-    is_rag_expert: bool = False,
-    file_names: Optional[List[str]] = None,
-    api_key: str = None,
+        user_id: int,
+        mode: str,
+        prompt: Union[str, List[Union[str, types.Part]]],
+        is_rag_expert: bool = False,
 ) -> GeminiResponse:
     """Generates a response using the new google-genai SDK with async client."""
-    if not api_key:
-        logger.error("Gemini API key is missing.")
+    api_key_manager = get_api_key_manager()
+    try:
+        api_key = api_key_manager.get_key()
+    except ValueError as e:
+        logger.error(f"API key acquisition failed: {e}")
         return GeminiResponse(text=settings.texts.error_message, finish_reason="ERROR")
 
     client = genai.Client(api_key=api_key)
     model_name = settings.gemini_model_config.get(mode, "gemini-1.5-flash-latest")
     logger.info(f"Initiating Gemini call for mode='{mode}' with model='{model_name}' using key ...{api_key[-4:]}")
 
-    # --- Content Construction ---
-    contents = []
-    if history:
-        contents.extend(history)
+    # --- Content Construction (New SDK) ---
+    history = await asyncio.to_thread(build_gemini_history, user_id)
+    
+    current_parts = []
+    if isinstance(prompt, str):
+        current_parts.append(types.Part(text=prompt))
+    else:  # It's a list for multi-modal input
+        for item in prompt:
+            if isinstance(item, str):
+                current_parts.append(types.Part(text=item))
+            elif isinstance(item, types.Part):
+                current_parts.append(item)
+    
+    contents = [*history, types.Content(role="user", parts=current_parts)]
 
-    user_parts = []
-    if user_content:
-        user_parts.append(user_content)
-
-    if file_names:
-        for name in file_names:
-            # The new SDK requires a File object or a URI string for generation
-            # We pass the name, which acts as the resource identifier like 'files/xxxx'
-            user_parts.append(genai.types.Part(file_data=genai.types.FileData(file_uri=name)))
-
-    if user_parts:
-        contents.append({'role': 'user', 'parts': user_parts})
-
-    # --- Tools and Config ---
+    # --- Tool and Config Construction (New SDK) ---
     tools = []
     if is_rag_expert:
-        logger.info("RAG expert mode. No tools will be passed to the Gemini API.")
+        logger.info("RAG expert mode. No tools will be passed.")
     elif mode in settings.internal_search_enabled_modes:
-        tools.append(genai.types.Tool(google_search=genai.types.GoogleSearch()))
+        tools.append(types.Tool(google_search=types.GoogleSearch()))
         tools.append(duckduckgo_search_tool)
         tools.append(url_context_tool)
-        logger.info(f"Enabling Google Search, DuckDuckGo, and URL Context for mode '{mode}'")
 
-    generation_config = genai.types.GenerateContentConfig(
-        temperature=settings.generation_config.temperature,
-        top_p=settings.generation_config.top_p,
-        top_k=settings.generation_config.top_k,
-        max_output_tokens=settings.generation_config.max_output_tokens,
-    )
-
-    safety_settings = {
-        category.name: threshold.name
+    safety_settings = [
+        types.SafetySetting(category=category, threshold=threshold)
         for category, threshold in settings.gemini_safety_settings.items()
-    }
+    ]
+
+    config = types.GenerateContentConfig(
+        generation_config=settings.generation_config,
+        safety_settings=safety_settings,
+        tools=tools,
+        system_instruction=settings.prompts.get_synthesizer_by_mode(mode),
+    )
 
     try:
         response = await client.aio.models.generate_content(
-            model=model_name,
-            contents=contents,
-            generation_config=generation_config,
-            safety_settings=safety_settings,
-            tools=tools,
-            system_instruction=system_prompt,
+            model=model_name, contents=contents, config=config
         )
-        logger.info(f"Gemini call successful with key ...{api_key[-4:]}")
-        return _process_gemini_response(response)
 
-    except google_exceptions.PermissionDenied as e:
-        logger.error(f"Gemini API Permission Denied (key ...{api_key[-4:]}): {e}", exc_info=True)
-        # This specific error is often due to key mismatches in a session.
-        # The session manager should handle this, but we return a specific message.
-        return GeminiResponse(text=settings.texts.permission_error, finish_reason="PERMISSION_DENIED")
+        api_key_manager.release_key(api_key)
+
+        # --- Response Processing (New SDK) ---
+        if not response.candidates:
+            logger.warning(f"No candidates returned from Gemini for user {user_id}")
+            return GeminiResponse(text=settings.texts.empty_response, finish_reason="EMPTY")
+
+        if response.prompt_feedback.block_reason:
+            logger.warning(
+                f"Response for user {user_id} blocked. Reason: {response.prompt_feedback.block_reason.name}"
+            )
+            return GeminiResponse(text=settings.texts.blocked_response, finish_reason="SAFETY")
+
+        finish_reason = response.candidates[0].finish_reason.name
+        
+        text_parts = [part.text for part in response.candidates[0].content.parts if hasattr(part, 'text') and part.text]
+        response_text = ''.join(text_parts)
+
+        return GeminiResponse(text=response_text, finish_reason=finish_reason)
+
+    except exceptions.PermissionDenied as e:
+        logger.error(f"Permission denied for API key ...{api_key[-4:]}: {e}")
+        api_key_manager.disable_key(api_key)
+        return await generate_response(user_id, mode, prompt, is_rag_expert)  # Retry
     except Exception as e:
-        logger.error(f"An unexpected error occurred during Gemini API call: {e}", exc_info=True)
+        logger.error(f"An unexpected error occurred during Gemini call: {e}", exc_info=True)
+        api_key_manager.release_key(api_key)
         return GeminiResponse(text=settings.texts.error_message, finish_reason="ERROR")
