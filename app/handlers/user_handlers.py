@@ -384,8 +384,12 @@ async def handle_user_request(
 
         # Log the full response (concatenated if multiple parts) for history
         full_response_for_history = "\n\n".join(response_parts) if response_parts else settings.texts.empty_response
-        await add_message_to_history(db_session, user_id, "user", user_content)
-        await add_message_to_history(db_session, user_id, "assistant", full_response_for_history)
+        # Store the file names with the user's message
+        uploaded_file_names = [part.file.display_name for part in uploaded_files_parts if hasattr(part, 'file') and hasattr(part.file, 'display_name')] if uploaded_files_parts else None
+        await add_message_to_history(db_session, user_id, "user", user_content, file_names=uploaded_file_names)
+
+        # Store the file names with the assistant's response if they were part of the original user message
+        await add_message_to_history(db_session, user_id, "assistant", full_response_for_history, file_names=uploaded_file_names)
 
         if not response_parts:
             await status_message.edit_text(settings.texts.empty_response)

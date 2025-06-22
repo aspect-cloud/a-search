@@ -27,6 +27,10 @@ async def build_gemini_history(
         role = "model" if record.role == "assistant" else record.role
         if role not in ["user", "model"]:
             continue
-        gemini_history.append(genai_types.Content(role=role, parts=[genai_types.Part(text=record.content)]))
+        parts = [genai_types.Part(text=record.content)]
+        if record.file_names:
+            for file_name in record.file_names:
+                parts.append(genai_types.Part(file=genai_types.File(display_name=file_name)))
+        gemini_history.append(genai_types.Content(role=role, parts=parts))
 
     return gemini_history
