@@ -229,13 +229,12 @@ async def _run_experts_and_synthesizer(
     ddg_queries = []
     expert_prompts = settings.prompts.get_experts_by_mode(mode)
 
-    for expert_details in expert_prompts:
+    async def get_expert_opinion(expert_details):
         expert_name = expert_details["name"]
         await update_callback(f"Consulting {expert_name}...")
         expert_prompt = expert_details["prompt"]
         is_rag_expert = expert_details["rag"]
 
-        # First call to get function call
         expert_prompt_parts: List[Union[str, genai.types.Part]] = prompt if isinstance(prompt, list) else [genai.types.Part(text=prompt)]
 
         response = await generate_response(
@@ -246,7 +245,6 @@ async def _run_experts_and_synthesizer(
         opinion = None
         if response and response.function_call:
             if is_rag_expert:
-                # Assuming one function call for simplicity as in original logic
                 call = response.function_call
                 if call.name == "search_duckduckgo":
                     query = call.args.get("query", "")
@@ -255,27 +253,9 @@ async def _run_experts_and_synthesizer(
                     
                     search_results = await get_instant_answer(query, session)
 
-                    # The history already contains the initial user prompt
-                    # We add the model's response (the function call) and the tool's response
-                    model_turn_with_tool_call = {
-                        "role": "model",
-                        "parts": [{"function_call": call}]
-                    }
-                    tool_response_turn = {
-                        "role": "tool",
-                        "parts": [{
-                            "function_response": {
-                                "name": "search_duckduckgo",
-                                "response": {"result": search_results}
-                            }
-                        }]
-                    }
-                    
-                    # If the original prompt was a list (multimodal), append the search results as a new part.
                     if isinstance(prompt, list):
                         updated_prompt = prompt + [genai.types.Part(text=f"Search results for '{query}':\n{search_results}")]
                     else:
-                        # If the original prompt was a string, concatenate the search results.
                         updated_prompt = f"{prompt}\nSearch results for '{query}':\n{search_results}"
 
                     final_expert_response = await generate_response(
@@ -291,7 +271,12 @@ async def _run_experts_and_synthesizer(
             opinion = response.text if response else None
 
         if opinion:
-            expert_opinions.append(f"### {expert_name}'s Opinion:\n{opinion}")
+            return f"### {expert_name}'s Opinion:\n{opinion}"
+        return None
+
+    tasks = [get_expert_opinion(expert_details) for expert_details in expert_prompts]
+    results = await asyncio.gather(*tasks)
+    expert_opinions = [opinion for opinion in results if opinion is not None]
 
     if not expert_opinions:
         return None, None
