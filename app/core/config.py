@@ -101,6 +101,7 @@ class Statuses:
     agent_experts: str = "🤖 Собираю мнения экспертов..."
     agent_synthesizer: str = "🤖 Синтезирую мнения экспертов..."
     rag_expert_search: str = "🔍 Ищу информацию для эксперта..."
+    experts_start: str = "🧠 Эксперты начинают работу..."
 
     def get_by_mode(self, mode: str, stage: str, expert_num: Optional[int] = None) -> str:
         """Returns the status message for the given mode and stage."""
@@ -111,7 +112,14 @@ class Statuses:
                 return f"🧠 Анализирую с аналитиком #{expert_num}..."
             elif mode == 'agent':
                 return f"🤖 Обсуждаю с экспертом #{expert_num}..."
-        return base_status
+        if stage == 'synthesizer':
+            return self.reasoning_synthesizer if mode == 'reasoning' else self.agent_synthesizer
+        elif stage == 'rag_expert_search':
+            return self.rag_expert_search
+        elif stage == 'experts_start':
+            return self.experts_start
+        else:
+            return self.fast # Default for 'fast' mode or unknown stages
 
 
 @dataclass

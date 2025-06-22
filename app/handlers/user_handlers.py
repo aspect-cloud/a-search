@@ -274,6 +274,7 @@ async def _run_experts_and_synthesizer(
             return f"### {expert_name}'s Opinion:\n{opinion}"
         return None
 
+    await update_callback(settings.statuses.get_by_mode(mode, 'experts_start'))
     tasks = [get_expert_opinion(expert_details, i + 1) for i, expert_details in enumerate(expert_prompts)]
     results = await asyncio.gather(*tasks)
     expert_opinions = [opinion for opinion in results if opinion is not None]
@@ -281,6 +282,7 @@ async def _run_experts_and_synthesizer(
     if not expert_opinions:
         return None, None
 
+    # Update status before synthesizing
     await update_callback(settings.statuses.get_by_mode(mode, 'synthesizer'))
     if mode == 'reasoning':
         synthesizer_prompt = settings.prompts.synthesizer_reasoning
@@ -341,7 +343,7 @@ async def handle_user_request(
     async def update_status(new_status: str):
         try:
             await bot.edit_message_text(new_status, chat_id=status_message.chat.id, message_id=status_message.message_id, parse_mode="HTML")
-            await asyncio.sleep(0.5)  # Add a small delay to make status messages more visible
+            await asyncio.sleep(1.0)  # Increased delay to make status messages more visible
         except Exception:
             pass
 
