@@ -95,12 +95,12 @@ class ButtonLabels:
 @dataclass
 class Statuses:
     """Container for status messages shown to the user during processing."""
-    fast: str
-    reasoning_experts: str
-    reasoning_synthesizer: str
-    agent_experts: str
-    agent_synthesizer: str
-    rag_expert_search: str
+    fast: str = "🚀 Генерирую быстрый ответ..."
+    reasoning_experts: str = "🧠 Собираю мнения аналитиков..."
+    reasoning_synthesizer: str = "🧠 Синтезирую мнения аналитиков..."
+    agent_experts: str = "🤖 Собираю мнения экспертов..."
+    agent_synthesizer: str = "🤖 Синтезирую мнения экспертов..."
+    rag_expert_search: str = "🔍 Ищу информацию для эксперта..."
 
     def get_by_mode(self, mode: str, stage: str, expert_num: Optional[int] = None) -> str:
         """Returns the status message for the given mode and stage."""

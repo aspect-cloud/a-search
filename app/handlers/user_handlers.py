@@ -229,9 +229,9 @@ async def _run_experts_and_synthesizer(
     ddg_queries = []
     expert_prompts = settings.prompts.get_experts_by_mode(mode)
 
-    async def get_expert_opinion(expert_details):
+    async def get_expert_opinion(expert_details, expert_num):
         expert_name = expert_details["name"]
-        await update_callback(f"Consulting {expert_name}...")
+        await update_callback(settings.statuses.get_by_mode(mode, 'experts', expert_num))
         expert_prompt = expert_details["prompt"]
         is_rag_expert = expert_details["rag"]
 
@@ -249,7 +249,7 @@ async def _run_experts_and_synthesizer(
                 if call.name == "search_duckduckgo":
                     query = call.args.get("query", "")
                     ddg_queries.append(query)
-                    await update_callback(f"Searching for: <code>{html.escape(query)}</code>")
+                    await update_callback(settings.statuses.rag_expert_search)
                     
                     search_results = await get_instant_answer(query, session)
 
@@ -274,14 +274,14 @@ async def _run_experts_and_synthesizer(
             return f"### {expert_name}'s Opinion:\n{opinion}"
         return None
 
-    tasks = [get_expert_opinion(expert_details) for expert_details in expert_prompts]
+    tasks = [get_expert_opinion(expert_details, i + 1) for i, expert_details in enumerate(expert_prompts)]
     results = await asyncio.gather(*tasks)
     expert_opinions = [opinion for opinion in results if opinion is not None]
 
     if not expert_opinions:
         return None, None
 
-    await update_callback("Synthesizing opinions...")
+    await update_callback(settings.statuses.get_by_mode(mode, 'synthesizer'))
     if mode == 'reasoning':
         synthesizer_prompt = settings.prompts.synthesizer_reasoning
     elif mode == 'agent':
@@ -341,6 +341,7 @@ async def handle_user_request(
     async def update_status(new_status: str):
         try:
             await bot.edit_message_text(new_status, chat_id=status_message.chat.id, message_id=status_message.message_id, parse_mode="HTML")
+            await asyncio.sleep(0.5)  # Add a small delay to make status messages more visible
         except Exception:
             pass
 
