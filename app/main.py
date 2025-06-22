@@ -17,8 +17,7 @@ async def main():
 
     try:
         from app.core.config import settings
-        from app.db.database import init_db
-        from app.db.database import SessionLocal
+        from app.db.database import async_init_db, AsyncSessionLocal
         from app.handlers import user_handlers
         from app.middlewares.db_middleware import DbSessionMiddleware
         from app.services.api_key_manager import initialize_api_key_manager
@@ -28,7 +27,7 @@ async def main():
         from aiogram.fsm.storage.memory import MemoryStorage
 
 
-        init_db()
+        await async_init_db()
         logging.info("Database initialized.")
         initialize_api_key_manager(settings.gemini_api_keys)
         logging.info("API Key Manager initialized.")
@@ -43,7 +42,7 @@ async def main():
         logger.info("Bot and Dispatcher initialized.")
 
 
-        dp.update.middleware(DbSessionMiddleware(session_pool=SessionLocal))
+        dp.update.middleware(DbSessionMiddleware(session_pool=AsyncSessionLocal))
         dp.include_router(user_handlers.router)
         logger.info("Middlewares and routers are registered.")
 
