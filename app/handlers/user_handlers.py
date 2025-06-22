@@ -365,8 +365,7 @@ async def handle_user_request(
         await add_message_to_history(db_session, user_id, "assistant", final_text)
 
         response_message = final_text
-        if ddg_query_used:
-            response_message += format_duckduckgo_html(ddg_query_used)
+
 
         await status_message.edit_text(response_message, parse_mode="HTML", disable_web_page_preview=True)
 

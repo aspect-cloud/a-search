@@ -108,9 +108,9 @@ class Statuses:
         base_status = getattr(self, attr_name, "")
         if stage == 'experts' and expert_num is not None:
             if mode == 'reasoning':
-                return f"🧠 Консультируюсь с аналитиком #{expert_num}..."
+                return f"🧠 Анализирую с аналитиком #{expert_num}..."
             elif mode == 'agent':
-                return f"🤖 Совещаюсь с экспертом #{expert_num}..."
+                return f"🤖 Обсуждаю с экспертом #{expert_num}..."
         return base_status
 
 

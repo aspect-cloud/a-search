@@ -31,23 +31,22 @@ def format_duckduckgo_html(ddg_result: dict) -> str:
 
     results = ddg_result.get('Results', [])
     if results:
-        html += '<ul>'
+        html += '\n'
         for r in results:
             title = r.get('Text')
             url = r.get('FirstURL')
             if title and url:
-                html += f'<li><a href="{url}">{title}</a></li>'
-        html += '</ul>'
+                html += f'- <a href="{url}">{title}</a>\n'
 
     related = ddg_result.get('RelatedTopics', [])
     if related:
-        html += '<b>Похожие темы:</b><ul>'
+        html += '<b>Похожие темы:</b>\n'
         for r in related:
             if isinstance(r, dict):
                 title = r.get('Text')
                 url = r.get('FirstURL')
                 if title and url:
-                    html += f'<li><a href="{url}">{title}</a></li>'
+                    html += f'- <a href="{url}">{title}</a>\n'
         html += '</ul>'
 
     src_url = ddg_result.get('meta', {}).get('src_url')
