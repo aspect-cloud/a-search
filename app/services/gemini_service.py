@@ -117,10 +117,10 @@ async def generate_response(
         logger.info(f"Enabling Google Search, DuckDuckGo, and URL Context for mode '{mode}'")
 
     generation_config = genai.types.GenerateContentConfig(
-        temperature=settings.generation_config.get("temperature"),
-        top_p=settings.generation_config.get("top_p"),
-        top_k=settings.generation_config.get("top_k"),
-        max_output_tokens=settings.generation_config.get("max_output_tokens"),
+        temperature=settings.generation_config.temperature,
+        top_p=settings.generation_config.top_p,
+        top_k=settings.generation_config.top_k,
+        max_output_tokens=settings.generation_config.max_output_tokens,
     )
 
     safety_settings = {
