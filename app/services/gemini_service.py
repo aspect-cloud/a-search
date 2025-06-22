@@ -8,9 +8,9 @@ from google.api_core import exceptions
 
 from app.core.config import settings
 from app.db.utils import build_gemini_history
-from app.models.gemini_models import GeminiResponse
+from app.schemas.gemini_schemas import GeminiResponse
 from app.services.api_key_manager import get_api_key_manager
-from app.services.tool_service import duckduckgo_search_tool, url_context_tool
+from app.schemas.tools import duckduckgo_search_tool, url_context_tool
 
 logger = logging.getLogger(__name__)
 
