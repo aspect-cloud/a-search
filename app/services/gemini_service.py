@@ -58,6 +58,7 @@ async def generate_response(
         prompt: Union[str, List[Union[str, types.Part]]],
         has_files: bool,
         is_rag_expert: bool = False,
+        system_instruction: Optional[str] = None,
 ) -> GeminiResponse:
     """Generates a response using the new google-genai SDK with async client."""
     api_key_manager = get_api_key_manager()
@@ -117,7 +118,7 @@ async def generate_response(
     config = types.GenerateContentConfig(
         safety_settings=safety_settings,
         tools=tools,
-        system_instruction=settings.prompts.get_synthesizer_by_mode(mode),
+        system_instruction=system_instruction,
         **settings.generation_config,
     )
 

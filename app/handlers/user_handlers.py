@@ -236,8 +236,11 @@ async def _run_experts_and_synthesizer(
         is_rag_expert = expert_details["rag"]
 
         # First call to get function call
+        expert_prompt_parts: List[Union[str, genai.types.Part]] = prompt if isinstance(prompt, list) else [genai.types.Part(text=prompt)]
+
         response = await generate_response(
-            db_session=db_session, user=user, mode=mode, prompt=prompt, has_files=uploaded_files_parts is not None, is_rag_expert=is_rag_expert
+            db_session=db_session, user=user, mode=mode, prompt=expert_prompt_parts, has_files=uploaded_files_parts is not None, is_rag_expert=is_rag_expert,
+            system_instruction=expert_prompt
         )
 
         opinion = None
@@ -268,15 +271,18 @@ async def _run_experts_and_synthesizer(
                         }]
                     }
                     
-                    # The history is now managed by build_gemini_history, so we just need to pass the prompt
-                    # which includes the user's latest message and any file parts.
-                    # The tool-use turns will be handled by the Gemini service if we re-call it.
-                    # For this flow, we will just use the search results directly.
+                    # If the original prompt was a list (multimodal), append the search results as a new part.
+                    if isinstance(prompt, list):
+                        updated_prompt = prompt + [genai.types.Part(text=f"Search results for '{query}':\n{search_results}")]
+                    else:
+                        # If the original prompt was a string, concatenate the search results.
+                        updated_prompt = f"{prompt}\nSearch results for '{query}':\n{search_results}"
+
                     final_expert_response = await generate_response(
                         db_session=db_session,
                         user=user,
                         mode=mode,
-                        prompt=f"{prompt}\nSearch results for '{query}':\n{search_results}",
+                        prompt=updated_prompt,
                         has_files=uploaded_files_parts is not None,
                         is_rag_expert=is_rag_expert
                     )
@@ -300,8 +306,13 @@ async def _run_experts_and_synthesizer(
     synthesis_context = "\n\n".join(expert_opinions)
 
     # Final synthesizer call
+    synthesizer_prompt_parts: List[Union[str, genai.types.Part]] = [genai.types.Part(text=synthesis_context)]
+    if uploaded_files_parts:
+        synthesizer_prompt_parts.extend(uploaded_files_parts)
+
     final_response = await generate_response(
-        db_session=db_session, user=user, mode=mode, prompt=synthesis_context, has_files=uploaded_files_parts is not None, is_rag_expert=False
+        db_session=db_session, user=user, mode=mode, prompt=synthesizer_prompt_parts, has_files=uploaded_files_parts is not None, is_rag_expert=False,
+        system_instruction=synthesizer_prompt
     )
     ddg_query_used = ", ".join(sorted(list(set(ddg_queries)))) if ddg_queries else None
     return final_response, ddg_query_used
@@ -363,7 +374,8 @@ async def handle_user_request(
 
         if mode == "fast":
             response_obj = await generate_response(
-                db_session=db_session, user=user_db, mode=mode, prompt=prompt, has_files=uploaded_files_parts is not None, is_rag_expert=False
+                db_session=db_session, user=user_db, mode=mode, prompt=prompt, has_files=uploaded_files_parts is not None, is_rag_expert=False,
+                system_instruction=settings.prompts.fast_prompt
             )
         elif mode in ["reasoning", "agent"]:
             response_obj, ddg_query_used = await _run_experts_and_synthesizer(
