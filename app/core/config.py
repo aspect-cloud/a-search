@@ -145,6 +145,7 @@ class Prompts:
 @dataclass
 class Settings:
     """Main container for all application settings."""
+    available_modes: List[str] = field(default_factory=lambda: ["🚀 Быстрый", "🧠 Вдумчивый", "🤖 Агент"])
     # --- Core settings ---
     bot_token: str = getenv("BOT_TOKEN")
     admin_id: int = int(getenv("ADMIN_ID", 0))
