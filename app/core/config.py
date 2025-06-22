@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass, field
 from os import getenv
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Union
 
 from dotenv import load_dotenv
 from google import genai
