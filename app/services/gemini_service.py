@@ -86,8 +86,8 @@ async def generate_response(
         logger.info("RAG expert mode. No tools will be passed.")
     elif mode in settings.internal_search_enabled_modes:
         tools.append(types.Tool(google_search=types.GoogleSearch()))
-        tools.append(duckduckgo_search_tool)
-        tools.append(url_context_tool)
+        # tools.append(duckduckgo_search_tool)
+        # tools.append(url_context_tool)
 
     safety_settings = [
         genai.types.SafetySetting(
