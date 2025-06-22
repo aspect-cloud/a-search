@@ -125,7 +125,7 @@ async def generate_response(
 
     safety_settings = {
         category.name: threshold.name
-        for category, threshold in settings.safety_settings.items()
+        for category, threshold in settings.gemini_safety_settings.items()
     }
 
     try:
