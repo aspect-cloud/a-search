@@ -1,6 +1,6 @@
-from sqlalchemy import Column, Integer, String, BigInteger, Text
+from sqlalchemy import Column, Integer, String, Text, BigInteger
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.dialects.postgresql import JSONB # Using JSONB for better performance with JSON data
+from sqlalchemy.types import JSON
 
 Base = declarative_base()
 
