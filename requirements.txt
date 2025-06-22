@@ -3,6 +3,8 @@ python-dotenv==1.0.1
 google-genai
 sqlalchemy==2.0.30
 alembic==1.13.1
+aiosqlite
+greenlet
 asyncpg==0.29.0
 requests==2.32.3
 pydantic==2.7.4
