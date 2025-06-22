@@ -35,7 +35,7 @@ router = Router()
 @router.message(Command("start"))
 @log_user_action
 async def start(message: Message, state: FSMContext, db_session: Session):
-    get_or_create_user(db_session, message.from_user.id)
+    await get_or_create_user(db_session, message.from_user.id)
     user_name = html.escape(message.from_user.full_name)
     await state.clear()
     await state.set_state(UserState.MODE_SELECTION)
@@ -76,9 +76,8 @@ async def reset_command(message: Message, state: FSMContext, db_session: Session
             logger.error(f"Could not acquire API key for reset file deletion: {e}")
 
     # --- Database History Clearing (Non-blocking) ---
-    loop = asyncio.get_running_loop()
     try:
-        await loop.run_in_executor(None, clear_user_history, db_session, user_id)
+        await clear_user_history(db_session, user_id)
         logger.info(f"Successfully cleared database history for user {user_id}")
     except Exception as e:
         logger.error(f"Failed to clear database history for user {user_id}: {e}", exc_info=True)

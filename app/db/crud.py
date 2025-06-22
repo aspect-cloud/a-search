@@ -1,55 +1,63 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, delete
 from . import models
 
 
-def add_message_to_history(
-    db: Session, user_id: int, role: str, content: str
+async def add_message_to_history(
+    db: AsyncSession, user_id: int, role: str, content: str
 ) -> models.History:
     db_message = models.History(user_id=user_id, role=role, content=content)
     db.add(db_message)
-    db.commit()
-    db.refresh(db_message)
+    await db.commit()
+    await db.refresh(db_message)
     return db_message
 
 
-def get_user_history(db: Session, user_id: int) -> list[models.History]:
-    return db.query(models.History).filter(models.History.user_id == user_id).all()
-
-
-def clear_user_history(db: Session, user_id: int) -> int:
-    num_rows_deleted = (
-        db.query(models.History).filter(models.History.user_id == user_id).delete()
+async def get_user_history(db: AsyncSession, user_id: int) -> list[models.History]:
+    result = await db.execute(
+        select(models.History).filter(models.History.user_id == user_id)
     )
-    db.commit()
-    return num_rows_deleted
+    return result.scalars().all()
 
 
-def get_or_create_user(db: Session, user_id: int, mode: str = None) -> models.User:
-    user = db.query(models.User).filter(models.User.id == user_id).first()
+async def clear_user_history(db: AsyncSession, user_id: int) -> int:
+    result = await db.execute(
+        delete(models.History).filter(models.History.user_id == user_id)
+    )
+    await db.commit()
+    return result.rowcount
+
+
+async def get_or_create_user(
+    db: AsyncSession, user_id: int, mode: str = None
+) -> models.User:
+    result = await db.execute(select(models.User).filter(models.User.id == user_id))
+    user = result.scalars().first()
     if not user:
         user = models.User(id=user_id)
         db.add(user)
-        db.commit()
-        db.refresh(user)
+        await db.commit()
+        await db.refresh(user)
     if mode:
         user.mode = mode
-        db.commit()
-        db.refresh(user)
+        await db.commit()
+        await db.refresh(user)
     return user
 
 
-def update_user_mode(db: Session, user_id: int, mode: str) -> models.User:
-    db_user = db.query(models.User).filter(models.User.id == user_id).first()
+async def update_user_mode(db: AsyncSession, user_id: int, mode: str) -> models.User:
+    result = await db.execute(select(models.User).filter(models.User.id == user_id))
+    db_user = result.scalars().first()
     if db_user:
         db_user.mode = mode
-        db.commit()
-        db.refresh(db_user)
+        await db.commit()
+        await db.refresh(db_user)
     return db_user
 
 
-def update_user_model(db: Session, user_id: int, mode: str) -> models.User:
-    user = get_or_create_user(db, user_id)
+async def update_user_model(db: AsyncSession, user_id: int, mode: str) -> models.User:
+    user = await get_or_create_user(db, user_id)
     user.mode = mode
-    db.commit()
-    db.refresh(user)
+    await db.commit()
+    await db.refresh(user)
     return user
