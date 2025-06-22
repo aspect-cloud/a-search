@@ -95,15 +95,26 @@ async def reset_button_handler(message: Message, state: FSMContext, db_session: 
     await reset_command(message, state, db_session)
 
 
-@router.message(UserState.MODE_SELECTION, F.text.in_(settings.available_modes))
+@router.message(F.text.in_(settings.available_modes))
 @log_user_action
 async def set_mode(message: Message, state: FSMContext):
-    mode = message.text.lower()
+    mode_map = {
+        settings.buttons.fast: "fast",
+        settings.buttons.reasoning: "reasoning",
+        settings.buttons.agent: "agent",
+    }
+    mode = mode_map.get(message.text)
+
+    if not mode:
+        await message.answer("Неизвестный режим.")
+        return
+
     await state.update_data(mode=mode)
     await state.set_state(UserState.CHATTING)
     await message.answer(
-        settings.texts.mode_selection.format(mode=mode),
-        reply_markup=main_reply_keyboard(current_mode=mode),
+        settings.texts.mode_selection.format(mode=message.text),
+        reply_markup=main_reply_keyboard(),
+        parse_mode="HTML",
     )
 
 
