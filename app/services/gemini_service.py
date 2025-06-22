@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import mimetypes
 from typing import List, Optional, Union
 
 from google import genai
@@ -35,9 +36,14 @@ async def upload_file_to_gemini(
     """Uploads a file to Gemini and returns a Part object for use in a prompt."""
     client = genai.Client(api_key=api_key)
     try:
+        mime_type, _ = mimetypes.guess_type(file_path)
+        if not mime_type:
+            mime_type = 'application/octet-stream'  # Default to a generic binary type
+
         with open(file_path, 'rb') as f:
             uploaded_file = await client.aio.files.upload(
-                file=f
+                file=f,
+                mime_type=mime_type
             )
         logger.info(f"Uploaded file '{uploaded_file.display_name}' as: {uploaded_file.uri}")
         return types.Part.from_uri(uri=uploaded_file.uri, mime_type=uploaded_file.mime_type)
