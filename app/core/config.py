@@ -67,7 +67,7 @@ class TextMessages:
     empty_request: str = "Пожалуйста, введи текстовый запрос."
 
     # --- Media Handling ---
-    photo_no_caption: str = "[фото без подписи]"
+    photo_no_caption: str = "[без подписи]"
     media_processing: str = "⏳ Обрабатываю твой файл..."
     uploading_to_google: str = "☁️ Загружаю файл в Google через File API..."
     media_error: str = "⚠️ Не удалось обработать твой файл. Пожалуйста, убедись, что формат поддерживается, и попробуй снова."
