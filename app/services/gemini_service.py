@@ -33,19 +33,18 @@ async def delete_file_from_gemini(file_name: str, api_key: str) -> None:
 async def upload_file_to_gemini(
         file_path: str, api_key: str, display_name: Optional[str] = None
 ) -> Optional[types.Part]:
-    """Uploads a file to Gemini and returns a Part object for use in a prompt."""
-    client = genai.Client(api_key=api_key)
+    """Reads a file and returns a Part object with inline data for use in a prompt."""
     try:
         mime_type, _ = mimetypes.guess_type(file_path)
         if not mime_type:
             mime_type = 'application/octet-stream'  # Default to a generic binary type
 
-        uploaded_file = await client.aio.files.upload(
-            path=file_path,
-            mime_type=mime_type
-        )
-        logger.info(f"Uploaded file '{uploaded_file.display_name}' as: {uploaded_file.uri}")
-        return types.Part.from_uri(uri=uploaded_file.uri, mime_type=uploaded_file.mime_type)
+        with open(file_path, 'rb') as f:
+            file_data = f.read()
+
+        logger.info(f"Prepared file {file_path} with MIME type {mime_type} for inline embedding.")
+        return types.Part(inline_data=types.Blob(data=file_data, mime_type=mime_type))
+
     except Exception as e:
         logger.error(f"Failed to upload file {file_path}: {e}")
         return None
