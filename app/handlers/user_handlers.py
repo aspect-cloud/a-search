@@ -237,10 +237,10 @@ async def _run_experts_and_synthesizer(
         )
 
         opinion = None
-        if response and response.function_calls:
+        if response and response.function_call:
             if is_rag_expert:
                 # Assuming one function call for simplicity as in original logic
-                call = response.function_calls[0]
+                call = response.function_call
                 if call.name == "search_duckduckgo":
                     query = call.args.get("query", "")
                     ddg_queries.append(query)
